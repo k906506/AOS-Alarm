@@ -1,8 +1,16 @@
 # 키워드
 
+- AlarmManager
+- Notification
+- getSharedPreference
+- Broadcast Receiver
+
 # 구현 목록
 
-# 개발 과정
+1. TimePicker로 시각 설정하기
+2. 알림 ON / OFF
+
+# 개발 과정 [(노션에서 확인하기)](https://codekodo.notion.site/Android-Alarm-c90b7307d1a84198b8598fa6eb4c0de7)
 
 ## 1. 기본 UI 설정하기
 
@@ -243,3 +251,117 @@ data class AlarmDisplayModel(
 ```
 
 `renderView` 메소드에선 실제로 레이아웃과 연결해주는 작업을 수행한다.
+## 5. 알람 On / Off 설정하기
+
+지금까지 알람을 해줄 시각을 설정했다. 이제 해당 시각에 알림이 울리게끔 설정하면 된다.
+
+```jsx
+	private fun initOnOffButton() {
+        val onOffButton = findViewById<Button>(R.id.onOffButton)
+        onOffButton.setOnClickListener {
+
+            val model = it.tag as? AlarmDisplayModel ?: return@setOnClickListener
+            val newModel = saveAlarmModel(model.hour, model.minute, model.onOff.not())
+            renderView(newModel)
+
+            if (newModel.onOff) {
+                // 켜진 경우 -> 알람을 등록
+                val calendar = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, newModel.hour)
+                    set(Calendar.MINUTE, newModel.minute)
+
+                    if (before(Calendar.getInstance())) {
+                        add(Calendar.DATE, 1)
+                    }
+                }
+
+                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(this, AlarmReceiver::class.java)
+                val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE,
+                    intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+
+            } else {
+                cancelAlarm()
+            }
+
+        }
+    }
+```
+
+알람에 대한 클래스는 `BroadcastReceiver` 를 상속받아서 구현했다. BroadcastReceiver는 말 그대로 특정 행위가 발생했을 때 자동하는 클래스이다. 
+
+```jsx
+package com.example.alarm
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+
+class AlarmReceiver: BroadcastReceiver() {
+
+    companion object {
+        const val NOTIFICATION_ID = 100
+        const val NOTIFICATION_CHANNEL_ID = "1000"
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        createNotificationChannel(context)
+        notifyNotification(context)
+    }
+
+    private fun createNotificationChannel(context: Context) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "기상 알람",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+
+            NotificationManagerCompat.from(context).createNotificationChannel(notificationChannel)
+        }
+    }
+
+    private fun notifyNotification(context: Context) {
+        with(NotificationManagerCompat.from(context)) {
+            val build = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
+                .setContentTitle("알람")
+                .setContentText("일어날 시간입니다.")
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+
+            notify(NOTIFICATION_ID, build.build())
+
+        }
+
+    }
+
+}
+```
+
+알람이 작동해야할때 이 클래스를 작동시키려고 한다. 
+
+`Nofication` 과 `Broadcasting` 에 관한 공식문서를 가져왔다.
+
+![](https://images.velog.io/images/k906506/post/bf2a8293-3957-41d8-b87e-53dd3cf6f608/image.png)
+
+[안드로이드 공식 문서 - Notification](https://developer.android.com/guide/components/broadcasts?hl=ko)
+
+![](https://images.velog.io/images/k906506/post/7e8e4e53-c3b3-4933-be0c-565971cfe085/image.png)
+
+[안드로이드 공식 문서 - Broadcasting](https://developer.android.com/guide/topics/ui/notifiers/notifications?hl=ko)
+
+![](https://images.velog.io/images/k906506/post/04bbf004-20d7-46e7-b37f-05a7aa0175c9/image.png)
+
+해당 시각에 알림이 울리는 곳을 볼 수 있다.
