@@ -51,10 +51,9 @@ class MainActivity : AppCompatActivity() {
                 val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE,
                     intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
-                alarmManager.setInexactRepeating(
+                alarmManager.setExact(
                     AlarmManager.RTC_WAKEUP,
                     calendar.timeInMillis,
-                    AlarmManager.INTERVAL_DAY,
                     pendingIntent
                 )
 
